@@ -1,0 +1,14 @@
+{
+  "name": "传奇投资大师俱乐部",
+  "short_name": "大师俱乐部",
+  "description": "41 位投资大师的虚拟圆桌与可审计预测账本",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#141009",
+  "theme_color": "#141009",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
