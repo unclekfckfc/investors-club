@@ -466,7 +466,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-13 内容已生成 · 引擎 2026-11-13 18:44 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-13 内容已生成 · 引擎 2026-11-13 19:04 构建</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
     <div id="liveStrip">
@@ -633,7 +633,7 @@ function isoDate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.get
 var WD='日一二三四五六';
 function fmtFull(d){return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 周'+WD[d.getDay()]}
 function fmtShort(d){return (d.getMonth()+1)+'/'+d.getDate()}
-function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
 /* =============== 大师数据 =============== */
 var MASTERS=[
