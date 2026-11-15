@@ -169,3 +169,71 @@ window.__PAPER__.calc = function () {
     waitingCount: P.positions.length - openCount, asOf: P.asOf
   };
 };
+
+// 归因与集中度：唯一实现。页面面板与 .cowork-temp/attribution.js 都只调这里，
+// 避免「页面一套、脚本一套」给出两个不同的 HHI。
+window.__PAPER__.attribution = function () {
+  var P = window.__PAPER__;
+  var F = window.__FIDX__ || { sectors: [] };
+  var C = P.calc();
+  var open = C.positions.filter(function (r) { return r.state === 'open' && r.notional; });
+  function sectorOf(sym) {
+    for (var i = 0; i < (F.sectors || []).length; i++) {
+      if (F.sectors[i].members.indexOf(sym) >= 0) return F.sectors[i];
+    }
+    return null;
+  }
+  var gross = 0, bySym = {}, bySec = {}, longN = 0;
+  open.forEach(function (r) {
+    var n = Math.abs(r.notional);
+    gross += n;
+    if (r.dir > 0) longN += n;
+    bySym[r.symbol] = (bySym[r.symbol] || 0) + n;
+    var s = sectorOf(r.symbol), id = s ? s.id : 'other';
+    bySec[id] = bySec[id] || { id: id, name: s ? s.name : '未归类', n: 0, pnl: 0, names: [] };
+    bySec[id].n += n; bySec[id].pnl += r.pnl;
+    if (bySec[id].names.indexOf(r.name) < 0) bySec[id].names.push(r.name);
+  });
+  var eq = C.equity;
+  if (!open.length || !gross) {
+    return { asOf: C.asOf, empty: true, equity: eq, gross: 0, exposurePct: 0, effN: 0, top1PctGross: 0, top1PctEquity: 0, sectors: [], longPct: 0, shortPct: 0, factors: [], stress: [], allDown10: 0, allDown10Pct: 0, issues: [] };
+  }
+  var shares = Object.keys(bySym).map(function (k) { return bySym[k] / gross; });
+  var hhi = shares.reduce(function (a, b) { return a + b * b; }, 0);
+  var effN = hhi ? 1 / hhi : 0;
+  var top1 = Math.max.apply(null, shares);
+  var secs = Object.keys(bySec).map(function (k) { return bySec[k]; }).sort(function (a, b) { return b.n - a.n; });
+  var stress = secs.map(function (s) {
+    var d = 0;
+    open.forEach(function (r) {
+      var ss = sectorOf(r.symbol);
+      if ((ss ? ss.id : 'other') === s.id) d -= r.dir * Math.abs(r.notional) * 0.20;
+    });
+    return { name: s.name, delta: Math.round(d) };
+  }).sort(function (a, b) { return a.delta - b.delta; });
+  var allDown10 = open.reduce(function (acc, r) { return acc - r.dir * Math.abs(r.notional) * 0.10; }, 0);
+  var facs = C.factorPct || [];
+  // 未归类的敞口（指数/宏观产品不在赛道成员表里）：必须显式暴露，否则赛道归因看起来齐全其实缺一半
+  var unclassified = (bySec['other'] ? bySec['other'].n : 0) / gross;
+  var topClassified = secs.filter(function (s) { return s.id !== 'other'; })[0];
+  var issues = [];
+  if (top1 * gross / eq > 0.25) issues.push('单标的占权益 ' + Math.round(top1 * gross / eq * 100) + '%（>25%）');
+  if (hhi > 0.30) issues.push('HHI ' + hhi.toFixed(2) + '（>0.30）');
+  if (topClassified && topClassified.n / eq > 0.45) issues.push('单赛道占权益 ' + Math.round(topClassified.n / eq * 100) + '%（>45%）');
+  if (Math.max(longN, gross - longN) / eq > 0.60) issues.push('单方向占权益 ' + Math.round(Math.max(longN, gross - longN) / eq * 100) + '%（>60% 上限）');
+  if (stress[0] && Math.abs(stress[0].delta) / eq > 0.06) issues.push('最坏单赛道 -20% 亏 ' + Math.round(Math.abs(stress[0].delta) / eq * 100) + '% 权益（>6%）');
+  if (facs[0] && facs[0].pct > 0.40) issues.push('单因子「' + facs[0].name + '」占权益 ' + Math.round(facs[0].pct * 100) + '%（>40%）');
+  if (unclassified > 0.30) issues.push('未归类占敞口 ' + Math.round(unclassified * 100) + '%（赛道归因不完整，需补成员映射）');
+  return {
+    asOf: C.asOf, empty: false, equity: eq, gross: gross,
+    exposurePct: gross / eq, effN: effN,
+    top1PctGross: top1, top1PctEquity: top1 * gross / eq,
+    hhi: hhi,
+    sectors: secs.map(function (s) { return { id: s.id, name: s.id === 'other' ? '未归类（指数/宏观）' : s.name, pct: s.n / gross, pnl: s.pnl, names: s.names }; }),
+    unclassifiedPct: unclassified,
+    longPct: longN / gross, shortPct: (gross - longN) / gross,
+    factors: facs.map(function (f) { return { name: f.name, pct: f.pct }; }),
+    stress: stress, allDown10: allDown10, allDown10Pct: allDown10 / eq,
+    issues: issues
+  };
+};
