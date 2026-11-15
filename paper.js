@@ -22,8 +22,8 @@ window.__PAPER__ = {
   fx: {
     base: 'CNY',
     pair: 'USDCNH',
-    src: '东方财富 133.USDCNH 日线（离岸人民币）',
-    asOf: '2026-11-13',
+    src: '东方财富 133.USDCNH 日线 + 新浪 fx_susdcnh 最新价补录（降级口径）',
+    asOf: '2026-11-14',
     rates: {
      
           "2026-08-17": 6.7434,
@@ -90,7 +90,8 @@ window.__PAPER__ = {
           "2026-11-10": 6.6765,
           "2026-11-11": 6.6738,
           "2026-11-12": 6.6734,
-          "2026-11-13": 6.6747
+          "2026-11-13": 6.6747,
+          "2026-11-14": 6.6746
     
     }
   },
@@ -121,37 +122,37 @@ window.__PAPER__ = {
   positions: [
     {
       id: 'p1', m: 'dalio', date: '2026-10-28', symbol: 'sz399006', name: '创业板指', dir: -1,
-      entry: 2634.76, stop: 2634.76, mark: 2426.08,
+      entry: 2634.76, stop: 2634.76, mark: 2426.08, entrySrc: 'tencent:2026-10-28',
       thesis: '鹰派暂停≠宽松，反弹难以持续', ruleText: '到期不高于 2634.76 即成立'
     },
     {
       id: 'p2', m: 'druckenmiller', date: '2026-11-06', symbol: 'usNVDA', name: '英伟达', dir: -1,
-      entry: 186.64, stop: 186.64, mark: 162.85,
+      entry: 186.64, stop: 186.64, mark: 162.85, entrySrc: 'sina:2026-11-06',
       thesis: 'AI 硬件难言见底，期间会出现更便宜的价格', ruleText: '窗口内最低收盘低于 186.64 即成立'
     },
     {
       id: 'p3', m: 'druckenmiller', date: '2026-11-09', symbol: 'hf_OIL', name: '原油', dir: -1,
-      entry: 92.26, stop: 100, mark: 96.29,
+      entry: 92.26, stop: 100, mark: 96.29, entrySrc: 'sina:2026-11-09',
       thesis: '供给过剩压过地缘溢价', ruleText: '到期低于 100 即成立'
     },
     {
       id: 'p4', m: 'druckenmiller', date: '2026-11-10', symbol: 'usNVDA', name: '英伟达', dir: -1,
-      entry: 168.89, stop: 184.12, mark: 162.85,
+      entry: 168.89, stop: 184.12, mark: 162.85, entrySrc: 'sina:2026-11-10',
       thesis: '反弹不能持续，反弹高点不过前高', ruleText: '窗口内最低收盘不高于 184.12 即成立'
     },
     {
       id: 'p5', m: 'druckenmiller', date: '2026-11-11', symbol: 'usIXIC', name: '纳斯达克', dir: -1,
-      entry: 25466.19, stop: 25000, mark: 25136.27,
+      entry: 25466.19, stop: 25000, mark: 25136.27, entrySrc: 'tencent:2026-11-11',
       thesis: '利率预期不回落，指数守不住 25000', ruleText: '窗口内最低收盘低于 25000 即成立'
     },
     {
       id: 'p6', m: 'druckenmiller', date: '2026-11-12', symbol: 'usNVDA', name: '英伟达', dir: -1,
-      entry: 166.19, stop: 150, mark: 162.85,
+      entry: 166.19, stop: 150, mark: 162.85, entrySrc: 'sina:2026-11-12',
       thesis: '估值压缩未完成，还有一段下跌', ruleText: '窗口内最低收盘低于 150 即成立'
     },
     {
       id: 'p7', m: 'oneill', date: '2026-11-13', symbol: 'usNVDA', name: '英伟达', dir: 1,
-      entry: 162.85, stop: 175, mark: 162.85,
+      entry: 162.85, stop: 175, mark: 162.85, entrySrc: 'sina:2026-11-13',
       thesis: '跌到位了，反弹看 175', ruleText: '窗口内最高收盘不低于 175 即成立'
     },
     {
