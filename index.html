@@ -21,7 +21,7 @@
 <script src="future-nav.js?v=39cce32e"></script>
 <script src="tech-tree.js?v=5293451e"></script>
 <script src="roadmap.js?v=7a6ad0b5"></script>
-<script src="paper.js?v=32bbe431"></script>
+<script src="paper.js?v=d84c812f"></script>
 <style>
 :root{
   --bg:#141009; --bg2:#1a150d;
@@ -548,7 +548,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 23:08 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 23:56 构建</div>
 <div id="fiction-bar">本页人物言论均为虚构演绎，不代表本人观点；数据卡引用公开可查数据；不构成投资建议。</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
@@ -2458,6 +2458,21 @@ parts.push('行情 '+((typeof LIVE!=='undefined'&&LIVE.ok)?('已刷新 '+(LIVE.t
 return '数据时效 · '+parts.join(' · ')+' · 内容/账本/指数每日 07:30 更新，行情 60 秒刷新';
 }
 function updateFreshLine(){var el=document.getElementById('freshLine');if(el)el.innerHTML=esc(roadmapFresh());}
+// 年度证据：该年 focus 标的上带 rule 的账本条目里，已结算（hit/miss）的条数
+// 节点点亮只说明能力就绪，不等于判断被验证；没有证据不写「达成」
+function roadmapEvidence(p){
+var o={n:0,m:0};
+try{
+var B=(typeof BOOK!=='undefined'&&BOOK)||[];
+var fs=(p&&p.focus)||[];
+fs.forEach(function(s){
+var bound=0,got=0;
+B.forEach(function(b){if(b&&b.rule&&b.rule.symbol===s){bound++;if(b.status==='hit'||b.status==='miss')got++;}});
+if(bound){o.m+=bound;o.n+=got;}
+});
+}catch(e){}
+return o;
+}
 function renderRoadmap(){
 var w=document.getElementById('roadmapWrap');if(!w)return;
 var R=(window.__ROADMAP__||{years:[]});
@@ -2471,16 +2486,18 @@ var K=roadmapKpi();
 var kpiTxt=' · KPI 结算覆盖 '+K.settlePct+'%（'+K.settleN+'/'+K.settleM+'）· 赛道触及 '+K.sectors+'/'+K.sectorTotal+' · 年度校准 12 月';
 var stat='';
 if(curP){var gt=(curP.nodes||[]).length,gd=0;(curP.nodes||[]).forEach(function(id){var n=byNode[id];if(n&&n.status==='lit')gd++});var gp=gt?Math.round(gd/gt*100):0;
+var ev=roadmapEvidence(curP);var evPct=ev.m?Math.round(ev.n/ev.m*100):0;
 var t0=new Date(2026,0,1).getTime(),t1=new Date(2037,0,1).getTime();
 var decPct=Math.max(0,Math.min(100,Math.round(((new Date()).getTime()-t0)/(t1-t0)*1000)/10));
 var secPct=K.sectorTotal?Math.round(K.sectors/K.sectorTotal*100):0;
 var bars='<div class="rm-bars">'
 +'<div class="rm-bar-row"><span>十年时间进度</span><div class="rm-track" data-pct="'+decPct+'"><i class="rm-fill time" style="width:'+decPct+'%"></i></div><b>'+decPct+'%</b></div>'
 +'<div class="rm-bar-row"><span>年度闸门</span><div class="rm-track" data-pct="'+gp+'"><i class="rm-fill gate" style="width:'+gp+'%"></i></div><b>'+gd+'/'+gt+'</b></div>'
++'<div class="rm-bar-row"><span>结算证据</span><div class="rm-track" data-pct="'+evPct+'"><i class="rm-fill settle" style="width:'+evPct+'%"></i></div><b>'+ev.n+'/'+ev.m+(ev.m&&ev.n===0?'（无证据）':'')+'</b></div>'
 +'<div class="rm-bar-row"><span>结算覆盖</span><div class="rm-track" data-pct="'+K.settlePct+'"><i class="rm-fill settle" style="width:'+K.settlePct+'%"></i><em class="rm-target" style="left:30%" title="蓝图 KPI 目标 30%"></em></div><b>'+K.settlePct+'%（目标30%）</b></div>'
 +'<div class="rm-bar-row"><span>赛道触及</span><div class="rm-track" data-pct="'+secPct+'"><i class="rm-fill sector" style="width:'+secPct+'%"></i></div><b>'+K.sectors+'/'+K.sectorTotal+'</b></div>'
 +'</div>';
-stat='<div class="rm-status"><b>执行状态</b> '+curY+' '+esc(curP.theme)+' · 闸门 '+gd+'/'+gt+'（'+gp+'%）'+(gp===100?' 已达成':' 进行中')+kpiTxt+'</div>'+bars+'<div class="rm-fresh" id="freshLine">'+roadmapFresh()+'</div>'}
+stat='<div class="rm-status"><b>执行状态</b> '+curY+' '+esc(curP.theme)+' · 节点 '+gd+'/'+gt+'（'+gp+'%）'+(gp===100?(ev.n?' 已达成':' 节点就绪·无结算证据'):' 进行中')+' · 证据 '+ev.n+'/'+ev.m+kpiTxt+'</div>'+bars+'<div class="rm-fresh" id="freshLine">'+roadmapFresh()+'</div>'}
 var out='<div class="rm-head"><div class="rm-title">十年蓝图 <span>2026 → 2036</span></div><div class="rm-sub">'+esc(R.note||'')+'</div></div>'+stat+'<div class="rm-days">';
 var order=['moon','mars','galaxy'];
 for(var i=0;i<order.length;i++){
@@ -2492,10 +2509,11 @@ out+='<div class="rm-phase"><div class="rm-ph"><b>'+esc(mName[pid]||pid)+'</b><s
 arr.forEach(function(p){
 var badge=p.y===curY?'<i class="rm-now">今年</i>':(p.y<curY?'<i class="rm-past">已过</i>':'');
 var gt2=(p.nodes||[]).length,gd2=0;(p.nodes||[]).forEach(function(id){var n=byNode[id];if(n&&n.status==='lit')gd2++});
-var state=gt2&&gd2===gt2?'<i class="rm-state ok">闸门达成</i>':(p.y>curY?'<i class="rm-state wait">待启动</i>':'<i class="rm-state part">进行中 '+gd2+'/'+gt2+'</i>');
+var evC=roadmapEvidence(p);
+var state=gt2&&gd2===gt2?(evC.n?'<i class="rm-state ok">闸门达成</i>':'<i class="rm-state part">节点就绪·无证据</i>'):(p.y>curY?'<i class="rm-state wait">待启动</i>':'<i class="rm-state part">进行中 '+gd2+'/'+gt2+'</i>');
 var chips='';(p.nodes||[]).forEach(function(id){var n=byNode[id];if(!n)return;chips+= n.status==='lit'?'<span class="rm-node on">'+esc(n.name)+'</span>':'<span class="rm-node" data-open-node="'+id+'">'+esc(n.name)+'</span>'});
 var foc='';(p.focus||[]).forEach(function(c){foc+='<span class="rm-foc" title="'+esc(c)+'">'+esc(byCode[c]||c)+'</span>'});
-out+='<div class="rm-card'+(p.y===curY?' now':'')+'"><div class="rm-y">'+p.y+badge+'<em>'+esc(p.theme)+'</em>'+state+'</div><div class="rm-gate"><b>闸门</b>'+esc(p.gate)+'</div><div class="rm-mini"><i style="width:'+(gt2?Math.round(gd2/gt2*100):0)+'%"></i></div><div class="rm-kpi"><b>KPI</b>'+esc(p.kpi)+'</div><div class="rm-nodes">'+chips+'</div><div class="rm-focs">'+foc+'</div><div class="rm-risk">风险：'+esc(p.risk)+'</div><div class="rm-spend">'+esc(p.spend)+'</div></div>';
+out+='<div class="rm-card'+(p.y===curY?' now':'')+'"><div class="rm-y">'+p.y+badge+'<em>'+esc(p.theme)+'</em>'+state+'</div><div class="rm-gate"><b>闸门</b>'+esc(p.gate)+'</div><div class="rm-mini"><i style="width:'+(gt2?Math.round(gd2/gt2*100):0)+'%"></i></div><div class="rm-kpi"><b>证据</b>'+evC.n+'/'+evC.m+' 已结算（绑定 '+evC.m+' 条判断）</div><div class="rm-kpi"><b>KPI</b>'+esc(p.kpi)+'</div><div class="rm-nodes">'+chips+'</div><div class="rm-focs">'+foc+'</div><div class="rm-risk">风险：'+esc(p.risk)+'</div><div class="rm-spend">'+esc(p.spend)+'</div></div>';
 });
 out+='</div></div>';
 }
