@@ -238,7 +238,7 @@ window.__PAPER__.calc = function () {
   }
   var fxMarkDate = fx ? (fx.asOf || P.asOf) : P.asOf;
   var sumPnl = 0, sumGross = 0, sumFx = 0, sumCost = 0, fxExposure = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 }, expFac = {};
-  var advMaxUtil = 0, advUnknown = 0;
+  var advMaxUtil = 0, advUnknown = 0, sumPnlTradable = 0, tradableCount = 0, indexCount = 0;
   rows.forEach(function (r) {
     if (r.state !== 'open') return;
     var f = Math.min(fTotal, fDir[String(r.dir)], (fSym[r.symbol] === undefined ? 1 : fSym[r.symbol]), (fFac[r.factor] === undefined ? 1 : fFac[r.factor]));
@@ -264,6 +264,9 @@ window.__PAPER__.calc = function () {
     r.advUtil = r.adv ? r.notional / (r.adv * (r.advCcy === 'USD' ? r.fxMark : 1)) : null;
     if (r.advUtil !== null && r.advUtil > advMaxUtil) advMaxUtil = r.advUtil;
     if (r.adv === null) advUnknown++;
+    // 可执行性：指数本身不能成交，这类仓位的盈亏只能算「观点对错」，不能算「能赚到的钱」
+    r.tradable = liq ? liq.tradable !== false : true;
+    if (r.tradable) { sumPnlTradable += r.pnl; tradableCount++; } else { indexCount++; }
     sumGross += r.pnlGross; sumFx += r.pnlFx; sumCost += r.cost; sumPnl += r.pnl;
     exposure += r.notional;
     if (r.ccy !== 'CNY') fxExposure += r.notional * r.dir; // 人民币标的没有汇率敞口
@@ -279,6 +282,8 @@ window.__PAPER__.calc = function () {
     fxRateMark: fx ? fxRate(fxMarkDate) : 1, fxSrc: fx ? fx.src : '—', fxAsOf: fx ? fxMarkDate : P.asOf,
     advCapPct: (P.liquidity && P.liquidity.advCapPct) || 0.01, advMaxUtil: advMaxUtil, advUnknown: advUnknown,
     advAsOf: P.liquidity ? P.liquidity.asOf : null,
+    pnlTradable: sumPnlTradable, retTradablePct: sumPnlTradable / P.capital,
+    tradableCount: tradableCount, indexCount: indexCount,
     exposurePct: exposure / P.capital, rawExposurePct: rawTotal / P.capital,
     dirPct: { long: expDir.long / P.capital, short: expDir.short / P.capital },
     dirRawPct: { long: rawDir['1'] / P.capital, short: rawDir['-1'] / P.capital },
