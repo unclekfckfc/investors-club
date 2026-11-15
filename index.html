@@ -523,7 +523,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 18:04 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 18:40 构建</div>
 <div id="fiction-bar">本页人物言论均为虚构演绎，不代表本人观点；数据卡引用公开可查数据；不构成投资建议。</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
@@ -2527,7 +2527,7 @@ function renderSectorCoverage(){
   if(!F||!F.sectors||!B)return;
   var pad=function(n){return String(n).length<2?'0'+n:String(n)};
   var now=new Date(),today=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
-  var st=new Date(now.getTime()-6*86400000);
+  var st=new Date(now.getTime()-13*86400000);
   var startStr=st.getFullYear()+'-'+pad(st.getMonth()+1)+'-'+pad(st.getDate());
   var KW={energy:/能源|石油|原油|天然气|核电|光伏|储能|电网|油价|WTI|布伦特/,bio:/生物|基因|制药|减肥药|疫苗|CRISPR|医药|临床/,mat:/铜|锂|稀土|关键材料|白银|硅|铀|材料/,space:/太空|卫星|火箭|发射|轨道|航天|登月|火星/,robot:/机器人|自动化|人形|工业自动化/,ai:/AI|算力|芯片|GPU|英伟达|半导体|大模型|推理/};
   var cnt={};F.sectors.forEach(function(s){cnt[s.id]=0});
@@ -2539,6 +2539,7 @@ function renderSectorCoverage(){
     if(id&&cnt[id]!==undefined)cnt[id]++;
   });
   var covered=F.sectors.filter(function(s){return cnt[s.id]>0});
+  var gaps=F.sectors.filter(function(s){return cnt[s.id]===0});
   var WEAK=['energy','bio','mat'],weakMissing=WEAK.filter(function(id){return cnt[id]===0});
   var chips=F.sectors.map(function(s){
     var on=cnt[s.id]>0;
@@ -2550,11 +2551,11 @@ function renderSectorCoverage(){
     +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
     +'<b style="font-size:20px;color:var(--gold)">'+covered.length+'/6</b>'
     +'<span style="font-size:11.5px;color:var(--muted)">目标 6/6 · 窗口 '+startStr+' 至 '+today+'</span>'
-    +(weakMissing.length?'<span style="font-size:11.5px;color:#e08377">缺口：'+weakMissing.map(function(id){var s=F.sectors.filter(function(x){return x.id===id})[0];return s?s.name:id}).join('、')+'</span>':'<span style="font-size:11.5px;color:#7dc796">薄弱赛道已补齐</span>')
+    +(gaps.length?'<span style="font-size:11.5px;color:#e08377">缺口：'+gaps.map(function(s){return s.name}).join('、')+'</span>':'<span style="font-size:11.5px;color:#7dc796">六赛道全覆盖</span>')
     +'</div>'
     +'<div style="height:6px;border-radius:3px;background:rgba(201,168,106,.15);margin:8px 0 2px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#c9a86a,#7dc796)"></div></div>'
     +'<div>'+chips+'</div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-top:7px">口径：近 7 日账本条目按标的归属赛道（无标的按关键词）；每周二/三/五须各产出 1 条能源/生物/材料判断 · 缺口条目优先补</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:7px">口径：近 14 日账本条目按标的归属赛道（无标的按关键词）· 目标 ≥5/6 且能源/生物/材料各 ≥1 · 每 7 日 ≥3 个赛道 · 缺口条目优先补</div>'
     +'</div>';
   w.innerHTML=html;
 }
