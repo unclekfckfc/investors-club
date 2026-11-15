@@ -81,6 +81,14 @@ button{font-family:inherit;cursor:pointer}
   .viewhead h2{font-size:19px}
   .bp-card{padding:11px}
   #tickerbar{top:0}
+  /* 可读性：正文 15px / 说明 13px，行高放宽，数字表格保持紧凑 */
+  .post .pt{font-size:15px;line-height:1.95}
+  .viewhead p{font-size:13px;line-height:1.75}
+  .bp-card,.bp-card p,.bp-card li{font-size:13.5px;line-height:1.8}
+  .note,.hint,.sub,.muted{font-size:12.5px;line-height:1.7}
+  .ledgerwrap,.booktable{font-size:12.5px}
+  #tabs button{min-height:36px}
+  .btn,button.small{min-height:36px}
 }
 
 /* ---------- ticker ---------- */
@@ -540,7 +548,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 21:28 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 22:14 构建</div>
 <div id="fiction-bar">本页人物言论均为虚构演绎，不代表本人观点；数据卡引用公开可查数据；不构成投资建议。</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
@@ -2590,6 +2598,9 @@ var statHtml='<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px
 
 /* =============== 反馈（本地收集 · 手动导入周报） =============== */
 var FB_KEY='ioc_feedback_v1';
+var FB_OPEN_KEY='ioc_fb_opens_v1',fbOpenCounted=false;
+function fbOpenStats(){try{return +(localStorage.getItem(FB_OPEN_KEY)||0)}catch(e){return 0}}
+function fbBumpOpen(){if(fbOpenCounted)return fbOpenStats();fbOpenCounted=true;try{var n=fbOpenStats()+1;localStorage.setItem(FB_OPEN_KEY,String(n));return n}catch(e){return 0}}
 function fbLoad(){try{return JSON.parse(localStorage.getItem(FB_KEY)||'[]')}catch(e){return[]}}
 function fbSave(a){try{localStorage.setItem(FB_KEY,JSON.stringify(a.slice(-100)))}catch(e){}}
 function fbAdd(kind,note){
@@ -2627,7 +2638,7 @@ function renderFeedback(){
   '<input id="fbNote" placeholder="可选：具体哪一句 / 哪个数字有问题" style="width:100%;box-sizing:border-box;background:rgba(20,26,34,.6);border:1px solid var(--brass2);border-radius:8px;padding:7px 10px;color:var(--cream);font-size:12.5px;margin-bottom:8px"/>'+
   '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+btn('useful','👍 有用','rgba(125,199,150,.6)')+btn('doubt','⚠ 数据存疑','rgba(224,163,92,.6)')+btn('disagree','👎 观点不认同','rgba(224,131,119,.6)')+btn('copy','复制 JSON','rgba(125,199,150,.6)')+btn('export','下载','rgba(201,168,106,.6)')+'</div>'+
   '<div id="fbCopyTip" style="font-size:11.5px;color:var(--muted);margin-bottom:6px"></div>'+
-  '<div style="font-size:11.5px;color:var(--muted)">本机已记录 <b style="color:var(--brass3)">'+a.length+'</b> 条</div>'+
+  '<div style="font-size:11.5px;color:var(--muted)">本机已记录 <b style="color:var(--brass3)">'+a.length+'</b> 条 · 面板打开 <b style="color:var(--brass3)">'+fbBumpOpen()+'</b> 次（仅本机统计，用于判断有没有人看）</div>'+
   recent.map(function(x){return '<div style="border-left:2px solid rgba(201,168,106,.3);padding:3px 0 3px 9px;margin-top:6px;font-size:12px"><span style="color:var(--muted)">'+esc(x.date)+' · '+esc(kinds[x.kind]||x.kind)+'</span>'+(x.note?'<div style="margin-top:2px">'+esc(x.note)+'</div>':'')+'</div>'}).join('');
   box.querySelectorAll('[data-fb]').forEach(function(b){
     b.addEventListener('click',function(){
