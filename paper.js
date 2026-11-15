@@ -17,6 +17,18 @@ window.__PAPER__ = {
   minStop: 0.03,
   caps: { total: 1.0, perDir: 0.6, perSymbol: 0.25, perFactor: 0.4 },
   costs: { slippagePerSide: 0.0005, financingAnnual: 0.03 },
+  // 汇率：所有收益按人民币口径。非人民币标的按「入场日汇率 → 标价日汇率」折算，
+  // 敞口方向与仓位方向一致（做多美元资产=做多美元，做空=做空美元）。
+  fx: {
+    base: 'CNY',
+    pair: 'USDCNH',
+    src: '东方财富 133.USDCNH 日线（离岸人民币）',
+    asOf: '2026-11-13',
+    rates: {
+      '2026-10-28': 6.6615, '2026-11-06': 6.6738, '2026-11-09': 6.6693,
+      '2026-11-10': 6.6765, '2026-11-11': 6.6738, '2026-11-12': 6.6734, '2026-11-13': 6.6747
+    }
+  },
   // 宏观因子分组：同一个宏观押注不因换了标的就算分散
   factors: [
     { id: 'aiCapex', name: 'AI 资本开支', symbols: ['usNVDA', 'usAMD', 'usTSM', 'usASML', 'usVRT'], sectors: ['ai'] },
@@ -136,7 +148,18 @@ window.__PAPER__.calc = function () {
     fFac[k] = rawFac[k] > lim ? lim / rawFac[k] : 1;
   });
   var asOfMs = Date.parse(P.asOf + 'T00:00:00Z');
-  var sumPnl = 0, sumGross = 0, sumCost = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 }, expFac = {};
+  // 汇率口径：非人民币标的折算成人民币；敞口方向 = 仓位方向（做空美元资产 = 做空美元）
+  var fx = P.fx || null;
+  function ccyOf(sym) { return /^(sz|sh)/.test(sym || '') ? 'CNY' : 'USD'; }
+  function fxRate(date) {
+    if (!fx || !fx.rates) return 1;
+    if (fx.rates[date] != null) return fx.rates[date];
+    var keys = Object.keys(fx.rates).sort(), picked = keys[0];
+    for (var i = 0; i < keys.length; i++) { if (keys[i] <= date) picked = keys[i]; }
+    return fx.rates[picked];
+  }
+  var fxMarkDate = fx ? (fx.asOf || P.asOf) : P.asOf;
+  var sumPnl = 0, sumGross = 0, sumFx = 0, sumCost = 0, fxExposure = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 }, expFac = {};
   rows.forEach(function (r) {
     if (r.state !== 'open') return;
     var f = Math.min(fTotal, fDir[String(r.dir)], (fSym[r.symbol] === undefined ? 1 : fSym[r.symbol]), (fFac[r.factor] === undefined ? 1 : fFac[r.factor]));
@@ -149,8 +172,15 @@ window.__PAPER__.calc = function () {
     var days = isFinite(pdate) && isFinite(asOfMs) ? Math.max(0, Math.round((asOfMs - pdate) / 86400000)) : 0;
     r.holdDays = days;
     r.cost = r.notional * costs.slippagePerSide * 2 + r.notional * costs.financingAnnual * days / 365;
-    r.pnl = r.pnlGross - r.cost;
-    sumGross += r.pnlGross; sumCost += r.cost; sumPnl += r.pnl; exposure += r.notional;
+    r.ccy = ccyOf(r.symbol);
+    r.fxEntry = r.ccy === 'CNY' ? 1 : fxRate(r.entryDate || r.date || P.asOf);
+    r.fxMark = r.ccy === 'CNY' ? 1 : fxRate(fxMarkDate);
+    r.fxRet = r.fxMark / r.fxEntry - 1;
+    r.pnlFx = r.notional * r.dir * r.fxRet;
+    r.pnl = r.pnlGross + r.pnlFx - r.cost;
+    sumGross += r.pnlGross; sumFx += r.pnlFx; sumCost += r.cost; sumPnl += r.pnl;
+    exposure += r.notional;
+    if (r.ccy !== 'CNY') fxExposure += r.notional * r.dir; // 人民币标的没有汇率敞口
     expFac[r.factor] = (expFac[r.factor] || 0) + r.notional;
     if (r.dir > 0) expDir.long += r.notional; else expDir.short += r.notional;
     if (r.pnl > 0.5) winCount++;
@@ -159,6 +189,8 @@ window.__PAPER__.calc = function () {
   return {
     capital: P.capital, equity: equity, pnl: sumPnl, pnlGross: sumGross, cost: sumCost, retPct: sumPnl / P.capital,
     grossRetPct: sumGross / P.capital, costPct: sumCost / P.capital,
+    fxPnl: sumFx, fxPct: sumFx / P.capital, fxSens: fxExposure / P.capital,
+    fxRateMark: fx ? fxRate(fxMarkDate) : 1, fxSrc: fx ? fx.src : '—', fxAsOf: fx ? fxMarkDate : P.asOf,
     exposurePct: exposure / P.capital, rawExposurePct: rawTotal / P.capital,
     dirPct: { long: expDir.long / P.capital, short: expDir.short / P.capital },
     dirRawPct: { long: rawDir['1'] / P.capital, short: rawDir['-1'] / P.capital },
