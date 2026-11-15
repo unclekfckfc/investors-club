@@ -21,7 +21,7 @@
 <script src="future-nav.js?v=39cce32e"></script>
 <script src="tech-tree.js?v=5293451e"></script>
 <script src="roadmap.js?v=7a6ad0b5"></script>
-<script src="paper.js?v=91470a2c"></script>
+<script src="paper.js?v=640a7541"></script>
 <style>
 :root{
   --bg:#141009; --bg2:#1a150d;
@@ -540,7 +540,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 20:52 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 21:06 构建</div>
 <div id="fiction-bar">本页人物言论均为虚构演绎，不代表本人观点；数据卡引用公开可查数据；不构成投资建议。</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
@@ -578,6 +578,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
     <div class="note" style="background:rgba(201,168,106,.06);border:1px solid var(--brass2);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--muted);margin-bottom:14px">入账标准：同时包含「方向」与「验证期限」的判断；不含时点的观点不入账。条目摘自本站虚构演绎的圆桌发言，复盘由馆长执行，全部内容不构成投资建议。账本自 2026-11-09 开立，此后每日圆桌的方向性判断将陆续入账。</div>
     <div id="discWrap"></div>
     <div id="paperWrap"></div>
+    <div id="attrWrap"></div>
     <div id="rankWrap"></div>
     <div id="bookGrid"></div>
   </section>
@@ -1988,6 +1989,45 @@ function hostFor(t){var ids=MASTERS.filter(function(m){return !m.guest}).map(fun
 function devilFor(t){var ids=MASTERS.filter(function(m){return !m.guest&&m.id!==hostFor(t)}).map(function(m){return m.id});return ids[hashStr('devil|'+t.id)%ids.length]}
 function hostLine(t){return '<div class="hostline">🎙️ 本期轮值主持：<b>'+esc(M[hostFor(t)].name)+'</b> · 😈 魔鬼代言人：<b>'+esc(M[devilFor(t)].name)+'</b></div>'}
 function topicShort(id){var t=findTopic(id);return t?t.short:'圆桌'}
+function renderAttribution(){
+  var w=document.getElementById('attrWrap');if(!w)return;
+  var P=window.__PAPER__,F=window.__FIDX__;if(!P||typeof P.calc!=='function'||!F)return;
+  var C=P.calc(),open=C.positions.filter(function(p){return p.state==='open'});
+  if(!open.length){w.innerHTML='';return}
+  var secOf=function(sym){for(var i=0;i<F.sectors.length;i++){if(F.sectors[i].members.indexOf(sym)>=0)return F.sectors[i]}return null};
+  var gross=0,bySym={},bySec={},longN=0;
+  open.forEach(function(p){var n=Math.abs(p.notional);gross+=n;if(p.dir>0)longN+=n;
+    bySym[p.symbol]=(bySym[p.symbol]||0)+n;
+    var s=secOf(p.symbol),id=s?s.id:'other';
+    bySec[id]=bySec[id]||{id:id,name:s?s.name:'未归类',n:0,pnl:0,syms:{}};
+    bySec[id].n+=n;bySec[id].pnl+=p.pnl;bySec[id].syms[p.name]=1;});
+  var eq=C.equity,shares=Object.keys(bySym).map(function(k){return bySym[k]/gross});
+  var hhi=shares.reduce(function(a,b){return a+b*b},0),effN=hhi?1/hhi:0;
+  var top1=Math.max.apply(null,shares);
+  var secs=Object.keys(bySec).map(function(k){return bySec[k]}).sort(function(a,b){return b.n-a.n});
+  var stress=secs.map(function(s){var d=0;open.forEach(function(p){var ss=secOf(p.symbol);if((ss?ss.id:'other')===s.id)d-=p.dir*Math.abs(p.notional)*0.2});return{name:s.name,d:Math.round(d)}}).sort(function(a,b){return a.d-b.d});
+  var issue=[];
+  if(top1*gross/eq>0.25)issue.push('单标的占权益 '+Math.round(top1*gross/eq*100)+'%（>25%）');
+  if(hhi>0.30)issue.push('HHI '+hhi.toFixed(2)+'（>0.30）');
+  var bars=secs.map(function(s){
+    var pct=s.n/gross*100;
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:5px">'
+      +'<span style="width:76px;color:var(--muted)">'+esc(s.name)+'</span>'
+      +'<span style="flex:1;height:7px;border-radius:4px;background:rgba(201,168,106,.12);overflow:hidden"><span style="display:block;height:100%;width:'+pct.toFixed(0)+'%;background:linear-gradient(90deg,#c9a86a,#7dc796)"></span></span>'
+      +'<span style="width:40px;text-align:right">'+pct.toFixed(0)+'%</span>'
+      +'<span style="width:64px;text-align:right;color:'+(s.pnl>=0?'#7dc796':'#e08377')+'">'+(s.pnl>=0?'+':'')+s.pnl.toFixed(0)+'</span>'
+      +'</div>';
+  }).join('');
+  var st=stress.map(function(s){return '<span style="margin-right:10px">'+esc(s.name)+' <b style="color:'+(s.d>=0?'#7dc796':'#e08377')+'">'+(s.d>=0?'+':'')+s.d+'</b></span>'}).join('');
+  w.innerHTML='<div style="border:1px solid rgba(201,168,106,.22);border-radius:10px;padding:11px 13px;margin-bottom:14px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
+    +'<div style="font-size:13px;letter-spacing:1px;color:var(--brass2)">归因与压力测试</div>'
+    +'<div style="font-size:11.5px;color:'+(issue.length?'#e08377':'#7dc796')+'">'+(issue.length?issue.join(' · '):'分散度达标')+'</div></div>'
+    +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">总敞口 '+Math.round(gross/eq*100)+'% 权益 · 有效持仓数 '+effN.toFixed(1)+' · 最大单标的 '+Math.round(top1*gross/eq*100)+'% · 多 '+Math.round(longN/gross*100)+'% / 空 '+Math.round((1-longN/gross)*100)+'%</div>'
+    +bars
+    +'<div style="font-size:11px;color:var(--muted);margin-top:8px;border-top:1px solid rgba(201,168,106,.12);padding-top:7px">单赛道 −20% 情景：'+st+'</div>'
+    +'<div style="font-size:10.5px;color:var(--muted);margin-top:5px">口径：同一标的多笔合并计算（四笔英伟达算一个风险）；压力测试按方向计盈亏，不含相关性与流动性，仅示意</div></div>';
+}
 function renderDiscipline(){
   var w=document.getElementById('discWrap');if(!w||!BOOK)return;
   var pad=function(n){return String(n).length<2?'0'+n:String(n)};
@@ -2634,7 +2674,7 @@ function switchView(v){
   document.querySelectorAll('#tabs button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-view')===v)});
   document.querySelectorAll('.view').forEach(function(s){s.classList.toggle('on',s.id==='view-'+v)});
   if(v==='office')fitStage();
-  if(v==='book'){renderDiscipline();renderBook();}
+  if(v==='book'){renderDiscipline();renderBook();renderAttribution();}
   if(v==='quarrel')renderQuarrels();
   if(v==='tree')renderTree();
 if(v==='blueprint'){renderFeedback();renderSectorCoverage();}
