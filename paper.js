@@ -9,7 +9,7 @@
  */
 window.__PAPER__ = {
   version: '1.0',
-  asOf: '2026-11-13',
+  asOf: '2026-11-14',
   capital: 1000000,
   riskPerTrade: 0.02,
   maxPosition: 0.25,
