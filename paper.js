@@ -1,0 +1,95 @@
+/* 纸面组合 PAPER PORTFOLIO — 把账本的方向判断折算成模拟盈亏
+ * 规则（v1.0，2026-11-15 立）：
+ *   1. 只有带 rule.symbol 的账本条目才入场；入场价 = 发帖日收盘（东财/腾讯 K 线，已核对）
+ *   2. 方向由规则隐含：op 为 < / <= → 看跌（做空该标的）；> / >= → 看涨（做多）
+ *   3. 止损距离 = |入场价 - 规则阈值| / 入场价；低于 3% 时按 8% 兜底（阈值贴着入场价的条目无有效止损）
+ *   4. 单笔风险 = 2% 权益，名义仓位 = 2% / 止损距离，上限 25% 权益
+ *   5. 全部按初始本金 100 万计仓位（不做复利叠加），只算价格变动，不含费用、滑点、融资成本
+ *   6. 全是模拟，不构成投资建议；mark 每日刷新，由 07:30 任务写入
+ */
+window.__PAPER__ = {
+  version: '1.0',
+  asOf: '2026-11-13',
+  capital: 1000000,
+  riskPerTrade: 0.02,
+  maxPosition: 0.25,
+  defaultStop: 0.08,
+  minStop: 0.03,
+  note: '纸面组合：账本每条带规则的判断折算一笔模拟仓位，入场价=发帖日收盘，止损距离=规则阈值距入场价，单笔风险 2% 权益、仓位上限 25%。仅模拟，不构成投资建议。',
+  positions: [
+    {
+      id: 'p1', m: 'dalio', date: '2026-10-28', symbol: 'sz399006', name: '创业板指', dir: -1,
+      entry: 2634.76, stop: 2634.76, mark: 2426.08,
+      thesis: '鹰派暂停≠宽松，反弹难以持续', ruleText: '到期不高于 2634.76 即成立'
+    },
+    {
+      id: 'p2', m: 'druckenmiller', date: '2026-11-06', symbol: 'usNVDA', name: '英伟达', dir: -1,
+      entry: 186.64, stop: 186.64, mark: 162.85,
+      thesis: 'AI 硬件难言见底，期间会出现更便宜的价格', ruleText: '窗口内最低收盘低于 186.64 即成立'
+    },
+    {
+      id: 'p3', m: 'druckenmiller', date: '2026-11-09', symbol: 'hf_OIL', name: '原油', dir: -1,
+      entry: 92.26, stop: 100, mark: 96.29,
+      thesis: '供给过剩压过地缘溢价', ruleText: '到期低于 100 即成立'
+    },
+    {
+      id: 'p4', m: 'druckenmiller', date: '2026-11-10', symbol: 'usNVDA', name: '英伟达', dir: -1,
+      entry: 168.89, stop: 184.12, mark: 162.85,
+      thesis: '反弹不能持续，反弹高点不过前高', ruleText: '窗口内最低收盘不高于 184.12 即成立'
+    },
+    {
+      id: 'p5', m: 'druckenmiller', date: '2026-11-11', symbol: 'usIXIC', name: '纳斯达克', dir: -1,
+      entry: 25466.19, stop: 25000, mark: 25136.27,
+      thesis: '利率预期不回落，指数守不住 25000', ruleText: '窗口内最低收盘低于 25000 即成立'
+    },
+    {
+      id: 'p6', m: 'druckenmiller', date: '2026-11-12', symbol: 'usNVDA', name: '英伟达', dir: -1,
+      entry: 166.19, stop: 150, mark: 162.85,
+      thesis: '估值压缩未完成，还有一段下跌', ruleText: '窗口内最低收盘低于 150 即成立'
+    },
+    {
+      id: 'p7', m: 'oneill', date: '2026-11-13', symbol: 'usNVDA', name: '英伟达', dir: 1,
+      entry: 162.85, stop: 175, mark: 162.85,
+      thesis: '跌到位了，反弹看 175', ruleText: '窗口内最高收盘不低于 175 即成立'
+    },
+    {
+      id: 'p8', m: 'soros', date: '2026-11-15', symbol: '105.IBIT', name: '比特币 ETF', dir: -1,
+      entry: null, stop: 36, mark: null, waiting: true,
+      thesis: '加密情绪转弱，IBIT 跌破 36', ruleText: '窗口内最低收盘低于 36 即成立（from 2026-11-16 入场）'
+    }
+  ],
+  sources: {
+    market: '东方财富 K 线（105.NVDA / 100.NDX / 1.000300）、腾讯行情（sz399006 / hf_OIL）、新浪全球期货日线（OIL）',
+    fetchedAt: '2026-11-15 14:20 CST',
+    note: 'usIXIC 与 100.NDX 在同一数据源上收盘价一致（11-13 均 25136.27），故用 NDX 日线补全 IXIC 入场价'
+  }
+};
+
+window.__PAPER__.calc = function () {
+  var P = window.__PAPER__;
+  var rows = [], sumPnl = 0, exposure = 0, openCount = 0, winCount = 0;
+  P.positions.forEach(function (p) {
+    if (p.waiting || !(p.entry > 0) || !(p.mark > 0)) {
+      rows.push({ id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'waiting', pnl: 0, notional: 0, retPct: 0, stopDist: 0 });
+      return;
+    }
+    var stopDist = Math.abs(p.entry - p.stop) / p.entry;
+    if (!(stopDist >= P.minStop)) stopDist = P.defaultStop;
+    var notional = Math.min(P.riskPerTrade / stopDist, P.maxPosition) * P.capital;
+    var retPct = (p.mark / p.entry - 1) * p.dir;
+    var pnl = notional * retPct;
+    sumPnl += pnl; exposure += notional; openCount++;
+    if (pnl > 0.5) winCount++;
+    rows.push({
+      id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'open',
+      entry: p.entry, mark: p.mark, stop: p.stop, stopDist: stopDist,
+      notional: notional, retPct: retPct, pnl: pnl, waiting: false
+    });
+  });
+  var equity = P.capital + sumPnl;
+  return {
+    capital: P.capital, equity: equity, pnl: sumPnl, retPct: sumPnl / P.capital,
+    exposurePct: exposure / P.capital, positions: rows, openCount: openCount, winCount: winCount,
+    waitingCount: P.positions.length - openCount, asOf: P.asOf
+  };
+};
