@@ -15,7 +15,8 @@ window.__PAPER__ = {
   maxPosition: 0.25,
   defaultStop: 0.08,
   minStop: 0.03,
-  note: '纸面组合：账本每条带规则的判断折算一笔模拟仓位，入场价=发帖日收盘，止损距离=规则阈值距入场价，单笔风险 2% 权益、仓位上限 25%。仅模拟，不构成投资建议。',
+  caps: { total: 1.0, perDir: 0.6 },
+  note: '纸面组合：账本每条带规则的判断折算一笔模拟仓位，入场价=发帖日收盘，止损距离=规则阈值距入场价，单笔风险 2% 权益；总敞口上限 100%、单方向上限 60%（不加杠杆、不单方向堆仓）。仅模拟，不构成投资建议。',
   positions: [
     {
       id: 'p1', m: 'dalio', date: '2026-10-28', symbol: 'sz399006', name: '创业板指', dir: -1,
@@ -67,29 +68,52 @@ window.__PAPER__ = {
 
 window.__PAPER__.calc = function () {
   var P = window.__PAPER__;
-  var rows = [], sumPnl = 0, exposure = 0, openCount = 0, winCount = 0;
+  var caps = P.caps || { total: 1.0, perDir: 0.6 };
+  var rows = [];
+  var rawTotal = 0, rawDir = { '1': 0, '-1': 0 }, openCount = 0;
+  // 第一轮：按单笔风险算出理论仓位（未受组合约束）
   P.positions.forEach(function (p) {
     if (p.waiting || !(p.entry > 0) || !(p.mark > 0)) {
-      rows.push({ id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'waiting', pnl: 0, notional: 0, retPct: 0, stopDist: 0 });
+      rows.push({ id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'waiting', pnl: 0, notional: 0, raw: 0, retPct: 0, stopDist: 0, scale: 0 });
       return;
     }
     var stopDist = Math.abs(p.entry - p.stop) / p.entry;
     if (!(stopDist >= P.minStop)) stopDist = P.defaultStop;
-    var notional = Math.min(P.riskPerTrade / stopDist, P.maxPosition) * P.capital;
-    var retPct = (p.mark / p.entry - 1) * p.dir;
-    var pnl = notional * retPct;
-    sumPnl += pnl; exposure += notional; openCount++;
-    if (pnl > 0.5) winCount++;
+    var raw = Math.min(P.riskPerTrade / stopDist, P.maxPosition) * P.capital;
+    rawTotal += raw; rawDir[String(p.dir)] += raw; openCount++;
     rows.push({
       id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'open',
       entry: p.entry, mark: p.mark, stop: p.stop, stopDist: stopDist,
-      notional: notional, retPct: retPct, pnl: pnl, waiting: false
+      raw: raw, notional: 0, retPct: 0, pnl: 0, scale: 0, waiting: false
     });
+  });
+  // 第二轮：组合级约束——总敞口与单方向敞口，超限按同一比例缩仓
+  var fTotal = rawTotal > caps.total * P.capital ? (caps.total * P.capital) / rawTotal : 1;
+  var fDir = {};
+  ['1', '-1'].forEach(function (d) {
+    var lim = caps.perDir * P.capital;
+    fDir[d] = rawDir[d] > lim ? lim / rawDir[d] : 1;
+  });
+  var sumPnl = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 };
+  rows.forEach(function (r) {
+    if (r.state !== 'open') return;
+    var f = Math.min(fTotal, fDir[String(r.dir)]);
+    r.scale = f;
+    r.notional = r.raw * f;
+    r.retPct = (r.mark / r.entry - 1) * r.dir;
+    r.pnl = r.notional * r.retPct;
+    sumPnl += r.pnl; exposure += r.notional;
+    if (r.dir > 0) expDir.long += r.notional; else expDir.short += r.notional;
+    if (r.pnl > 0.5) winCount++;
   });
   var equity = P.capital + sumPnl;
   return {
     capital: P.capital, equity: equity, pnl: sumPnl, retPct: sumPnl / P.capital,
-    exposurePct: exposure / P.capital, positions: rows, openCount: openCount, winCount: winCount,
+    exposurePct: exposure / P.capital, rawExposurePct: rawTotal / P.capital,
+    dirPct: { long: expDir.long / P.capital, short: expDir.short / P.capital },
+    dirRawPct: { long: rawDir['1'] / P.capital, short: rawDir['-1'] / P.capital },
+    caps: caps, scale: Math.min(fTotal, fDir['1'], fDir['-1']),
+    positions: rows, openCount: openCount, winCount: winCount,
     waitingCount: P.positions.length - openCount, asOf: P.asOf
   };
 };
