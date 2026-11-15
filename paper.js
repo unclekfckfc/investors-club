@@ -15,7 +15,7 @@ window.__PAPER__ = {
   maxPosition: 0.25,
   defaultStop: 0.08,
   minStop: 0.03,
-  caps: { total: 1.0, perDir: 0.6 },
+  caps: { total: 1.0, perDir: 0.6, perSymbol: 0.25 },
   note: '纸面组合：账本每条带规则的判断折算一笔模拟仓位，入场价=发帖日收盘，止损距离=规则阈值距入场价，单笔风险 2% 权益；总敞口上限 100%、单方向上限 60%（不加杠杆、不单方向堆仓）。仅模拟，不构成投资建议。',
   positions: [
     {
@@ -70,7 +70,7 @@ window.__PAPER__.calc = function () {
   var P = window.__PAPER__;
   var caps = P.caps || { total: 1.0, perDir: 0.6 };
   var rows = [];
-  var rawTotal = 0, rawDir = { '1': 0, '-1': 0 }, openCount = 0;
+  var rawTotal = 0, rawDir = { '1': 0, '-1': 0 }, rawSym = {}, openCount = 0;
   // 第一轮：按单笔风险算出理论仓位（未受组合约束）
   P.positions.forEach(function (p) {
     if (p.waiting || !(p.entry > 0) || !(p.mark > 0)) {
@@ -80,7 +80,7 @@ window.__PAPER__.calc = function () {
     var stopDist = Math.abs(p.entry - p.stop) / p.entry;
     if (!(stopDist >= P.minStop)) stopDist = P.defaultStop;
     var raw = Math.min(P.riskPerTrade / stopDist, P.maxPosition) * P.capital;
-    rawTotal += raw; rawDir[String(p.dir)] += raw; openCount++;
+    rawTotal += raw; rawDir[String(p.dir)] += raw; rawSym[p.symbol] = (rawSym[p.symbol] || 0) + raw; openCount++;
     rows.push({
       id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'open',
       entry: p.entry, mark: p.mark, stop: p.stop, stopDist: stopDist,
@@ -94,10 +94,16 @@ window.__PAPER__.calc = function () {
     var lim = caps.perDir * P.capital;
     fDir[d] = rawDir[d] > lim ? lim / rawDir[d] : 1;
   });
+  // 同一标的多笔（如四笔英伟达）属于同一个风险，按标的总量再缩一次
+  var fSym = {};
+  Object.keys(rawSym).forEach(function (s) {
+    var lim = (caps.perSymbol || 1) * P.capital;
+    fSym[s] = rawSym[s] > lim ? lim / rawSym[s] : 1;
+  });
   var sumPnl = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 };
   rows.forEach(function (r) {
     if (r.state !== 'open') return;
-    var f = Math.min(fTotal, fDir[String(r.dir)]);
+    var f = Math.min(fTotal, fDir[String(r.dir)], (fSym[r.symbol] === undefined ? 1 : fSym[r.symbol]));
     r.scale = f;
     r.notional = r.raw * f;
     r.retPct = (r.mark / r.entry - 1) * r.dir;
@@ -112,7 +118,7 @@ window.__PAPER__.calc = function () {
     exposurePct: exposure / P.capital, rawExposurePct: rawTotal / P.capital,
     dirPct: { long: expDir.long / P.capital, short: expDir.short / P.capital },
     dirRawPct: { long: rawDir['1'] / P.capital, short: rawDir['-1'] / P.capital },
-    caps: caps, scale: Math.min(fTotal, fDir['1'], fDir['-1']),
+    caps: caps, scale: Math.min.apply(null, [fTotal].concat(Object.keys(fDir).map(function (d) { return fDir[d]; })).concat(Object.keys(fSym).map(function (s) { return fSym[s]; }))),
     positions: rows, openCount: openCount, winCount: winCount,
     waitingCount: P.positions.length - openCount, asOf: P.asOf
   };
