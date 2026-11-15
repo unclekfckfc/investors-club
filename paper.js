@@ -94,6 +94,19 @@ window.__PAPER__ = {
     
     }
   },
+  // 容量：单笔名义占「近 20 日日均成交额」的比例。1% 是上限，超过就说明纸面收益来自无法成交的规模。
+  // 数据：东财日线成交额（美股）/ 新浪全球期货日线成交量×合约乘数（期货）；指数不按指数成交额校验。
+  liquidity: {
+    advCapPct: 0.01,
+    asOf: '2026-11-13',
+    symbols: {
+      usNVDA: { adv: 38433646378, ccy: 'USD', days: 20, asOf: '2026-11-13', src: '东财 105.NVDA 日线成交额' },
+      hf_OIL: { adv: 39244100000, ccy: 'USD', days: 20, asOf: '2026-11-13', src: '新浪 OIL 日线 成交量×1000' },
+      sz399006: { adv: null, tradable: false, note: '指数，头部寸按 ETF/期货代理' },
+      usIXIC: { adv: null, tradable: false, note: '指数，头部寸按 ETF/期货代理' },
+      '105.IBIT': { adv: null, tradable: true, note: '待入场，暂无日线成交额' }
+    }
+  },
   // 宏观因子分组：同一个宏观押注不因换了标的就算分散
   factors: [
     { id: 'aiCapex', name: 'AI 资本开支', symbols: ['usNVDA', 'usAMD', 'usTSM', 'usASML', 'usVRT'], sectors: ['ai'] },
@@ -225,6 +238,7 @@ window.__PAPER__.calc = function () {
   }
   var fxMarkDate = fx ? (fx.asOf || P.asOf) : P.asOf;
   var sumPnl = 0, sumGross = 0, sumFx = 0, sumCost = 0, fxExposure = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 }, expFac = {};
+  var advMaxUtil = 0, advUnknown = 0;
   rows.forEach(function (r) {
     if (r.state !== 'open') return;
     var f = Math.min(fTotal, fDir[String(r.dir)], (fSym[r.symbol] === undefined ? 1 : fSym[r.symbol]), (fFac[r.factor] === undefined ? 1 : fFac[r.factor]));
@@ -243,6 +257,13 @@ window.__PAPER__.calc = function () {
     r.fxRet = r.fxMark / r.fxEntry - 1;
     r.pnlFx = r.notional * r.dir * r.fxRet;
     r.pnl = r.pnlGross + r.pnlFx - r.cost;
+    // 容量：名义 ÷ 该标的近 20 日日均成交额（同币种），美元标的按标价汇率折算
+    var liq = (P.liquidity && P.liquidity.symbols) ? P.liquidity.symbols[r.symbol] : null;
+    r.adv = liq && liq.adv ? liq.adv : null;
+    r.advCcy = liq && liq.adv ? liq.ccy : null;
+    r.advUtil = r.adv ? r.notional / (r.adv * (r.advCcy === 'USD' ? r.fxMark : 1)) : null;
+    if (r.advUtil !== null && r.advUtil > advMaxUtil) advMaxUtil = r.advUtil;
+    if (r.adv === null) advUnknown++;
     sumGross += r.pnlGross; sumFx += r.pnlFx; sumCost += r.cost; sumPnl += r.pnl;
     exposure += r.notional;
     if (r.ccy !== 'CNY') fxExposure += r.notional * r.dir; // 人民币标的没有汇率敞口
@@ -256,6 +277,8 @@ window.__PAPER__.calc = function () {
     grossRetPct: sumGross / P.capital, costPct: sumCost / P.capital,
     fxPnl: sumFx, fxPct: sumFx / P.capital, fxSens: fxExposure / P.capital,
     fxRateMark: fx ? fxRate(fxMarkDate) : 1, fxSrc: fx ? fx.src : '—', fxAsOf: fx ? fxMarkDate : P.asOf,
+    advCapPct: (P.liquidity && P.liquidity.advCapPct) || 0.01, advMaxUtil: advMaxUtil, advUnknown: advUnknown,
+    advAsOf: P.liquidity ? P.liquidity.asOf : null,
     exposurePct: exposure / P.capital, rawExposurePct: rawTotal / P.capital,
     dirPct: { long: expDir.long / P.capital, short: expDir.short / P.capital },
     dirRawPct: { long: rawDir['1'] / P.capital, short: rawDir['-1'] / P.capital },
