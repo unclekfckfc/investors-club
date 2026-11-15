@@ -15,7 +15,18 @@ window.__PAPER__ = {
   maxPosition: 0.25,
   defaultStop: 0.08,
   minStop: 0.03,
-  caps: { total: 1.0, perDir: 0.6, perSymbol: 0.25 },
+  caps: { total: 1.0, perDir: 0.6, perSymbol: 0.25, perFactor: 0.4 },
+  costs: { slippagePerSide: 0.0005, financingAnnual: 0.03 },
+  // 宏观因子分组：同一个宏观押注不因换了标的就算分散
+  factors: [
+    { id: 'aiCapex', name: 'AI 资本开支', symbols: ['usNVDA', 'usAMD', 'usTSM', 'usASML', 'usVRT'], sectors: ['ai'] },
+    { id: 'rates', name: '利率与流动性', symbols: ['usIXIC', '100.NDX', 'sz399006', 'sz399001', 'sh000001'] },
+    { id: 'commodity', name: '商品与材料', symbols: ['hf_OIL', 'hf_HG', 'hf_SI', 'OIL'], sectors: ['mat', 'energy'] },
+    { id: 'crypto', name: '加密与风险偏好', symbols: ['105.IBIT'] },
+    { id: 'space', name: '太空与航天', sectors: ['space'] },
+    { id: 'bio', name: '生物科技', sectors: ['bio'] },
+    { id: 'robot', name: '机器人与自动化', sectors: ['robot'] }
+  ],
   note: '纸面组合：账本每条带规则的判断折算一笔模拟仓位，入场价=发帖日收盘，止损距离=规则阈值距入场价，单笔风险 2% 权益；总敞口上限 100%、单方向上限 60%（不加杠杆、不单方向堆仓）。仅模拟，不构成投资建议。',
   positions: [
     {
@@ -69,8 +80,23 @@ window.__PAPER__ = {
 window.__PAPER__.calc = function () {
   var P = window.__PAPER__;
   var caps = P.caps || { total: 1.0, perDir: 0.6 };
+  var costs = P.costs || { slippagePerSide: 0, financingAnnual: 0 };
+  var FIDX = window.__FIDX__;
+  function factorOf(sym) {
+    var fs = P.factors || [];
+    for (var i = 0; i < fs.length; i++) {
+      if ((fs[i].symbols || []).indexOf(sym) >= 0) return fs[i];
+      if (FIDX && fs[i].sectors) {
+        for (var j = 0; j < fs[i].sectors.length; j++) {
+          var sec = (FIDX.sectors || []).filter(function (s) { return s.id === fs[i].sectors[j]; })[0];
+          if (sec && sec.members.indexOf(sym) >= 0) return fs[i];
+        }
+      }
+    }
+    return { id: 'other', name: '未归类' };
+  }
   var rows = [];
-  var rawTotal = 0, rawDir = { '1': 0, '-1': 0 }, rawSym = {}, openCount = 0;
+  var rawTotal = 0, rawDir = { '1': 0, '-1': 0 }, rawSym = {}, rawFac = {}, facName = {}, openCount = 0;
   // 第一轮：按单笔风险算出理论仓位（未受组合约束）
   P.positions.forEach(function (p) {
     if (p.waiting || !(p.entry > 0) || !(p.mark > 0)) {
@@ -80,11 +106,14 @@ window.__PAPER__.calc = function () {
     var stopDist = Math.abs(p.entry - p.stop) / p.entry;
     if (!(stopDist >= P.minStop)) stopDist = P.defaultStop;
     var raw = Math.min(P.riskPerTrade / stopDist, P.maxPosition) * P.capital;
-    rawTotal += raw; rawDir[String(p.dir)] += raw; rawSym[p.symbol] = (rawSym[p.symbol] || 0) + raw; openCount++;
+    var fac = factorOf(p.symbol);
+    rawTotal += raw; rawDir[String(p.dir)] += raw; rawSym[p.symbol] = (rawSym[p.symbol] || 0) + raw;
+    rawFac[fac.id] = (rawFac[fac.id] || 0) + raw; facName[fac.id] = fac.name; openCount++;
     rows.push({
       id: p.id, m: p.m, name: p.name, symbol: p.symbol, dir: p.dir, state: 'open',
       entry: p.entry, mark: p.mark, stop: p.stop, stopDist: stopDist,
-      raw: raw, notional: 0, retPct: 0, pnl: 0, scale: 0, waiting: false
+      date: p.date, entryDate: p.date, raw: raw, notional: 0, retPct: 0, pnl: 0, pnlGross: 0, cost: 0, holdDays: 0, scale: 0, waiting: false,
+      factor: fac.id, factorName: fac.name
     });
   });
   // 第二轮：组合级约束——总敞口与单方向敞口，超限按同一比例缩仓
@@ -100,25 +129,42 @@ window.__PAPER__.calc = function () {
     var lim = (caps.perSymbol || 1) * P.capital;
     fSym[s] = rawSym[s] > lim ? lim / rawSym[s] : 1;
   });
-  var sumPnl = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 };
+  // 同一宏观因子（如做空 AI + 做空纳指）属于同一个押注，按因子总量再缩一次
+  var fFac = {};
+  Object.keys(rawFac).forEach(function (k) {
+    var lim = (caps.perFactor || 1) * P.capital;
+    fFac[k] = rawFac[k] > lim ? lim / rawFac[k] : 1;
+  });
+  var asOfMs = Date.parse(P.asOf + 'T00:00:00Z');
+  var sumPnl = 0, sumGross = 0, sumCost = 0, exposure = 0, winCount = 0, expDir = { long: 0, short: 0 }, expFac = {};
   rows.forEach(function (r) {
     if (r.state !== 'open') return;
-    var f = Math.min(fTotal, fDir[String(r.dir)], (fSym[r.symbol] === undefined ? 1 : fSym[r.symbol]));
+    var f = Math.min(fTotal, fDir[String(r.dir)], (fSym[r.symbol] === undefined ? 1 : fSym[r.symbol]), (fFac[r.factor] === undefined ? 1 : fFac[r.factor]));
     r.scale = f;
     r.notional = r.raw * f;
     r.retPct = (r.mark / r.entry - 1) * r.dir;
-    r.pnl = r.notional * r.retPct;
-    sumPnl += r.pnl; exposure += r.notional;
+    r.pnlGross = r.notional * r.retPct;
+    // 成本：双边滑点 + 持有期融资/借券成本（按年化摊到持有天数）
+    var pdate = Date.parse((r.entryDate || r.date || P.asOf) + 'T00:00:00Z');
+    var days = isFinite(pdate) && isFinite(asOfMs) ? Math.max(0, Math.round((asOfMs - pdate) / 86400000)) : 0;
+    r.holdDays = days;
+    r.cost = r.notional * costs.slippagePerSide * 2 + r.notional * costs.financingAnnual * days / 365;
+    r.pnl = r.pnlGross - r.cost;
+    sumGross += r.pnlGross; sumCost += r.cost; sumPnl += r.pnl; exposure += r.notional;
+    expFac[r.factor] = (expFac[r.factor] || 0) + r.notional;
     if (r.dir > 0) expDir.long += r.notional; else expDir.short += r.notional;
     if (r.pnl > 0.5) winCount++;
   });
   var equity = P.capital + sumPnl;
   return {
-    capital: P.capital, equity: equity, pnl: sumPnl, retPct: sumPnl / P.capital,
+    capital: P.capital, equity: equity, pnl: sumPnl, pnlGross: sumGross, cost: sumCost, retPct: sumPnl / P.capital,
+    grossRetPct: sumGross / P.capital, costPct: sumCost / P.capital,
     exposurePct: exposure / P.capital, rawExposurePct: rawTotal / P.capital,
     dirPct: { long: expDir.long / P.capital, short: expDir.short / P.capital },
     dirRawPct: { long: rawDir['1'] / P.capital, short: rawDir['-1'] / P.capital },
-    caps: caps, scale: Math.min.apply(null, [fTotal].concat(Object.keys(fDir).map(function (d) { return fDir[d]; })).concat(Object.keys(fSym).map(function (s) { return fSym[s]; }))),
+    factorPct: Object.keys(expFac).map(function (k) { return { id: k, name: facName[k] || k, pct: expFac[k] / P.capital }; }).sort(function (a, b) { return b.pct - a.pct; }),
+    caps: caps, costs: costs,
+    scale: Math.min.apply(null, [fTotal].concat(Object.keys(fDir).map(function (d) { return fDir[d]; })).concat(Object.keys(fSym).map(function (s) { return fSym[s]; })).concat(Object.keys(fFac).map(function (k) { return fFac[k]; }))),
     positions: rows, openCount: openCount, winCount: winCount,
     waitingCount: P.positions.length - openCount, asOf: P.asOf
   };
