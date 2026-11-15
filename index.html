@@ -19,7 +19,7 @@
 <script src="book.js?v=b2a94481"></script>
 <script src="future-index.js?v=9a35b85f"></script>
 <script src="future-nav.js?v=39cce32e"></script>
-<script src="tech-tree.js?v=e148409c"></script>
+<script src="tech-tree.js?v=5293451e"></script>
 <script src="roadmap.js?v=7a6ad0b5"></script>
 <style>
 :root{
@@ -438,6 +438,12 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 .rm-title{color:var(--brass3);font-size:20px;letter-spacing:.06em}
 .rm-title span{color:var(--brass);font-size:13px;letter-spacing:.12em}
 .rm-sub{color:var(--cream-dim);font-size:12px}
+.rm-status{margin:2px 0 10px;padding:8px 12px;border:1px solid var(--brass2);border-radius:8px;background:rgba(201,168,106,.08);color:var(--cream-dim);font-size:12.5px}
+.rm-status b{color:var(--brass);letter-spacing:.12em;font-size:11px;margin-right:8px}
+.rm-state{font-style:normal;font-size:10px;border-radius:99px;padding:1px 7px;margin-left:auto;border:1px solid var(--wood3);color:var(--cream-dim)}
+.rm-state.ok{color:#9fe0b4;border-color:#2c5a3c;background:rgba(44,90,60,.18)}
+.rm-state.part{color:var(--brass3);border-color:var(--brass2);background:rgba(201,168,106,.12)}
+.rm-state.wait{color:#8a7a5c;border-style:dashed}
 .rm-days{display:flex;flex-direction:column;gap:12px}
 .rm-phase{border:1px solid var(--wood3);border-radius:12px;background:linear-gradient(180deg,rgba(42,33,23,.55),rgba(33,26,18,.35));padding:10px 10px 4px}
 .rm-ph{display:flex;align-items:baseline;gap:10px;padding:0 2px 8px}
@@ -502,7 +508,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 12:28 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 13:15 构建</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
     <div id="liveStrip">
@@ -2285,7 +2291,10 @@ var byNode={};(TREE.nodes||[]).forEach(function(n){byNode[n.id]=n});
 var byCode={};(TREE.nodes||[]).forEach(function(n){(n.instruments||[]).forEach(function(it){byCode[it.c]=it.n})});
 var mName={};(TREE.missions||[]).forEach(function(m){mName[m.id]=m.name});
 var curY=(new Date()).getFullYear();
-var out='<div class="rm-head"><div class="rm-title">十年蓝图 <span>2026 → 2036</span></div><div class="rm-sub">'+esc(R.note||'')+'</div></div><div class="rm-days">';
+var curP=null;ys.forEach(function(p){if(p.y===curY)curP=p});
+var stat='';
+if(curP){var gt=(curP.nodes||[]).length,gd=0;(curP.nodes||[]).forEach(function(id){var n=byNode[id];if(n&&n.status==='lit')gd++});var gp=gt?Math.round(gd/gt*100):0;stat='<div class="rm-status"><b>执行状态</b> '+curY+' '+esc(curP.theme)+' · 闸门 '+gd+'/'+gt+'（'+gp+'%）'+(gp===100?' 已达成':' 进行中')+' · KPI 待年度校准（12 月复盘会）</div>'}
+var out='<div class="rm-head"><div class="rm-title">十年蓝图 <span>2026 → 2036</span></div><div class="rm-sub">'+esc(R.note||'')+'</div></div>'+stat+'<div class="rm-days">';
 var order=['moon','mars','galaxy'];
 for(var i=0;i<order.length;i++){
 var pid=order[i];
@@ -2295,9 +2304,11 @@ var y0=arr[0].y,y1=arr[arr.length-1].y;
 out+='<div class="rm-phase"><div class="rm-ph"><b>'+esc(mName[pid]||pid)+'</b><span>'+y0+'–'+y1+' · '+arr.length+' 年</span></div><div class="rm-years">';
 arr.forEach(function(p){
 var badge=p.y===curY?'<i class="rm-now">今年</i>':(p.y<curY?'<i class="rm-past">已过</i>':'');
+var gt2=(p.nodes||[]).length,gd2=0;(p.nodes||[]).forEach(function(id){var n=byNode[id];if(n&&n.status==='lit')gd2++});
+var state=gt2&&gd2===gt2?'<i class="rm-state ok">闸门达成</i>':(p.y>curY?'<i class="rm-state wait">待启动</i>':'<i class="rm-state part">进行中 '+gd2+'/'+gt2+'</i>');
 var chips='';(p.nodes||[]).forEach(function(id){var n=byNode[id];if(!n)return;chips+= n.status==='lit'?'<span class="rm-node on">'+esc(n.name)+'</span>':'<span class="rm-node" data-open-node="'+id+'">'+esc(n.name)+'</span>'});
 var foc='';(p.focus||[]).forEach(function(c){foc+='<span class="rm-foc" title="'+esc(c)+'">'+esc(byCode[c]||c)+'</span>'});
-out+='<div class="rm-card'+(p.y===curY?' now':'')+'"><div class="rm-y">'+p.y+badge+'<em>'+esc(p.theme)+'</em></div><div class="rm-gate"><b>闸门</b>'+esc(p.gate)+'</div><div class="rm-kpi"><b>KPI</b>'+esc(p.kpi)+'</div><div class="rm-nodes">'+chips+'</div><div class="rm-focs">'+foc+'</div><div class="rm-risk">风险：'+esc(p.risk)+'</div><div class="rm-spend">'+esc(p.spend)+'</div></div>';
+out+='<div class="rm-card'+(p.y===curY?' now':'')+'"><div class="rm-y">'+p.y+badge+'<em>'+esc(p.theme)+'</em>'+state+'</div><div class="rm-gate"><b>闸门</b>'+esc(p.gate)+'</div><div class="rm-kpi"><b>KPI</b>'+esc(p.kpi)+'</div><div class="rm-nodes">'+chips+'</div><div class="rm-focs">'+foc+'</div><div class="rm-risk">风险：'+esc(p.risk)+'</div><div class="rm-spend">'+esc(p.spend)+'</div></div>';
 });
 out+='</div></div>';
 }
