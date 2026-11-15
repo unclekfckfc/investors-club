@@ -21,7 +21,7 @@
 <script src="future-nav.js?v=39cce32e"></script>
 <script src="tech-tree.js?v=5293451e"></script>
 <script src="roadmap.js?v=7a6ad0b5"></script>
-<script src="paper.js?v=640a7541"></script>
+<script src="paper.js?v=71a8446b"></script>
 <style>
 :root{
   --bg:#141009; --bg2:#1a150d;
@@ -540,7 +540,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 21:09 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 21:20 构建</div>
 <div id="fiction-bar">本页人物言论均为虚构演绎，不代表本人观点；数据卡引用公开可查数据；不构成投资建议。</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
@@ -2009,6 +2009,8 @@ function renderAttribution(){
   var issue=[];
   if(top1*gross/eq>0.25)issue.push('单标的占权益 '+Math.round(top1*gross/eq*100)+'%（>25%）');
   if(hhi>0.30)issue.push('HHI '+hhi.toFixed(2)+'（>0.30）');
+  var facs=C.factorPct||[];
+  if(facs.length&&facs[0].pct>0.40)issue.push('单因子「'+facs[0].name+'」占权益 '+Math.round(facs[0].pct*100)+'%（>40%）');
   var bars=secs.map(function(s){
     var pct=s.n/gross*100;
     return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:5px">'
@@ -2025,6 +2027,7 @@ function renderAttribution(){
     +'<div style="font-size:11.5px;color:'+(issue.length?'#e08377':'#7dc796')+'">'+(issue.length?issue.join(' · '):'分散度达标')+'</div></div>'
     +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">总敞口 '+Math.round(gross/eq*100)+'% 权益 · 有效持仓数 '+effN.toFixed(1)+' · 最大单标的 '+Math.round(top1*gross/eq*100)+'% · 多/空（占敞口）'+Math.round(longN/gross*100)+'% / '+Math.round((1-longN/gross)*100)+'%</div>'
     +bars
+    +'<div style="font-size:11.5px;color:var(--muted);margin-top:7px">宏观因子（换标的不等于分散）：'+(facs.length?facs.map(function(f){return esc(f.name)+' '+Math.round(f.pct*100)+'%'}).join(' · '):'—')+'</div>'
     +'<div style="font-size:11px;color:var(--muted);margin-top:8px;border-top:1px solid rgba(201,168,106,.12);padding-top:7px">单赛道 −20% 情景：'+st+'</div>'
     +'<div style="font-size:10.5px;color:var(--muted);margin-top:5px">口径：同一标的多笔合并计算（四笔英伟达算一个风险）；压力测试按方向计盈亏，不含相关性与流动性，仅示意</div></div>';
 }
@@ -2134,6 +2137,7 @@ function renderPaper(){
     +'<b style="font-family:var(--serif);font-size:15px;color:var(--brass3);letter-spacing:2px">纸面组合 · PAPER</b>'
     +'<span style="font-size:19px;font-weight:700;color:var(--gold)">'+C.equity.toFixed(0)+'</span>'
     +'<span class="chg '+(pos?'up':'dn')+'" style="font-size:12px">'+(pos?'+':'')+C.pnl.toFixed(0)+' · '+(pos?'+':'')+(C.retPct*100).toFixed(2)+'%</span>'
+    +'<span style="font-size:11px;color:var(--muted)">毛 '+(C.grossRetPct*100).toFixed(2)+'% − 成本 '+(C.costPct*100).toFixed(2)+'%（'+Math.round(C.cost)+'）= 净 '+(C.retPct*100).toFixed(2)+'%</span>'
     +'<span style="font-size:11px;color:var(--muted)">本金 '+C.capital+' · '+C.openCount+' 笔持仓 · '+C.waitingCount+' 笔待入场 · 敞口 '+(C.exposurePct*100).toFixed(0)+'% · 标记日 '+esc(C.asOf)+'</span>'
     +'</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:12px;margin:9px 0 6px">'
@@ -2183,7 +2187,13 @@ function card(b){
     var chips={pending:['pending','⏳ 待验证'],hit:['hit','✓ 命中'],miss:['miss','✗ 落空'],due:['due','⏰ 已到期待复盘']};
     var c=chips[b.status]||chips.pending;
     var cnt=b.status==='pending'&&gen.indexOf(b)>=0?' · <span style="color:var(--gold)">⏳ 距验证还有 '+monthsLeft(b.due)+' 个月</span>':'';
-    return '<div class="bcard"><div class="bh"><div class="pav" data-pid="'+b.m+'">'+avatarSVG(b.m,44)+'</div><div><b>'+esc(m.name)+'</b><span class="bd">'+b.date+' 发言 · 「'+esc(topicShort(b.topic))+'」</span></div><span class="chip '+c[0]+'">'+c[1]+'</span></div><div class="claim">'+esc(b.claim)+'</div><div class="bt">'+judgeTag(b)+'验证期限：'+b.due+cnt+(b.verdict?' · 复盘：'+esc(b.verdict):'')+' · <span data-open="'+b.topic+'" style="color:var(--gold);cursor:pointer">查看原帖 ›</span></div></div>';
+    var val='';
+    if(b.valuation&&b.valuation.metric){
+      var vp=Math.round((b.valuation.pct||0)*100);
+      var vcol=vp>=80?'#e08377':(vp<=20?'#7dc796':'var(--muted)');
+      val='<div style="font-size:11px;color:var(--muted);margin:2px 0 5px">估值锚：'+esc(b.valuation.metric)+' '+b.valuation.value+' · 历史分位 <b style="color:'+vcol+'">'+vp+'%</b> · '+esc(b.valuation.asOf||'')+(b.valuation.src?' · '+esc(b.valuation.src):'')+'</div>';
+    }
+    return '<div class="bcard"><div class="bh"><div class="pav" data-pid="'+b.m+'">'+avatarSVG(b.m,44)+'</div><div><b>'+esc(m.name)+'</b><span class="bd">'+b.date+' 发言 · 「'+esc(topicShort(b.topic))+'」</span></div><span class="chip '+c[0]+'">'+c[1]+'</span></div><div class="claim">'+esc(b.claim)+'</div>'+val+'<div class="bt">'+judgeTag(b)+'验证期限：'+b.due+cnt+(b.verdict?' · 复盘：'+esc(b.verdict):'')+' · <span data-open="'+b.topic+'" style="color:var(--gold);cursor:pointer">查看原帖 ›</span></div></div>';
   }
   function section(title,arr,note){
     if(!arr.length)return '';
