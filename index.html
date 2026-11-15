@@ -523,7 +523,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
 
 <div style="background:#3a1212;color:#f0d9c0;font-size:12px;text-align:center;padding:6px 10px;letter-spacing:1px">虚构创意演示 · 所有人物言论均为创作演绎，不代表本人及家属；内容不构成任何投资建议</div>
 <main>
-<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 14:28 构建</div>
+<div id="health-bar" style="background:#0f2a1a;color:#9fe0b4;font-size:12px;text-align:center;padding:5px 10px;letter-spacing:1px">✓ 今日 2026-11-15 内容已生成 · 引擎 2026-11-15 17:20 构建</div>
 <div id="fiction-bar">本页人物言论均为虚构演绎，不代表本人观点；数据卡引用公开可查数据；不构成投资建议。</div>
   <section id="view-office" class="view on">
     <div id="officeWrap"><div id="stage"></div></div>
@@ -582,6 +582,7 @@ footer{border-top:1px solid #2c2416;margin-top:30px;padding:20px 22px 30px;text-
       <h2>和 44 位传奇一起，把市场当思维健身房。<br/>为创造未来的人，每天 5 分钟。</h2>
       <p>新闻给信息，研报给结论；这里给的是思维方式的示范——同一个信号，44 副镜片。当未来尚不明朗，来看看传奇们如何在迷雾中下判断；这张星际航海图，为造船的人标注暗礁与航路。</p>
     </div>
+    <div id="sectorWrap"></div>
     <div class="bp-grid">
       <div class="bp-card">
         <h3>反馈与评价</h3>
@@ -2516,6 +2517,43 @@ function renderFeedback(){
 }
 
 /* =============== 视图切换 =============== */
+function renderSectorCoverage(){
+  var w=document.getElementById('sectorWrap');if(!w)return;
+  var F=window.__FIDX__,B=window.__BOOK__;
+  if(!F||!F.sectors||!B)return;
+  var pad=function(n){return String(n).length<2?'0'+n:String(n)};
+  var now=new Date(),today=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  var st=new Date(now.getTime()-6*86400000);
+  var startStr=st.getFullYear()+'-'+pad(st.getMonth()+1)+'-'+pad(st.getDate());
+  var KW={energy:/能源|石油|原油|天然气|核电|光伏|储能|电网|油价|WTI|布伦特/,bio:/生物|基因|制药|减肥药|疫苗|CRISPR|医药|临床/,mat:/铜|锂|稀土|关键材料|白银|硅|铀|材料/,space:/太空|卫星|火箭|发射|轨道|航天|登月|火星/,robot:/机器人|自动化|人形|工业自动化/,ai:/AI|算力|芯片|GPU|英伟达|半导体|大模型|推理/};
+  var cnt={};F.sectors.forEach(function(s){cnt[s.id]=0});
+  B.forEach(function(e){
+    if(e.date<startStr||e.date>today)return;
+    var id=null,sym=e.rule&&e.rule.symbol;
+    if(sym){for(var i=0;i<F.sectors.length;i++){if(F.sectors[i].members.indexOf(sym)>=0){id=F.sectors[i].id;break}}}
+    if(!id){var t=(e.claim||'')+' '+(e.topic||'');for(var k in KW){if(KW[k].test(t)){id=k;break}}}
+    if(id&&cnt[id]!==undefined)cnt[id]++;
+  });
+  var covered=F.sectors.filter(function(s){return cnt[s.id]>0});
+  var WEAK=['energy','bio','mat'],weakMissing=WEAK.filter(function(id){return cnt[id]===0});
+  var chips=F.sectors.map(function(s){
+    var on=cnt[s.id]>0;
+    return '<span style="display:inline-block;font-size:11.5px;padding:3px 9px;margin:4px 6px 0 0;border-radius:9px;border:1px solid '+(on?'rgba(125,199,150,.45)':'rgba(224,131,119,.45)')+';color:'+(on?'#7dc796':'#e08377')+'">'+s.emoji+' '+esc(s.name)+' <b>'+cnt[s.id]+'</b></span>';
+  }).join('');
+  var pct=Math.round(covered.length/6*100);
+  var html='<div class="bp-card" style="margin-bottom:14px">'
+    +'<h3>本周赛道覆盖 · 六赛道轮值</h3>'
+    +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
+    +'<b style="font-size:20px;color:var(--gold)">'+covered.length+'/6</b>'
+    +'<span style="font-size:11.5px;color:var(--muted)">目标 6/6 · 窗口 '+startStr+' 至 '+today+'</span>'
+    +(weakMissing.length?'<span style="font-size:11.5px;color:#e08377">缺口：'+weakMissing.map(function(id){var s=F.sectors.filter(function(x){return x.id===id})[0];return s?s.name:id}).join('、')+'</span>':'<span style="font-size:11.5px;color:#7dc796">薄弱赛道已补齐</span>')
+    +'</div>'
+    +'<div style="height:6px;border-radius:3px;background:rgba(201,168,106,.15);margin:8px 0 2px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#c9a86a,#7dc796)"></div></div>'
+    +'<div>'+chips+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:7px">口径：近 7 日账本条目按标的归属赛道（无标的按关键词）；每周二/三/五须各产出 1 条能源/生物/材料判断 · 缺口条目优先补</div>'
+    +'</div>';
+  w.innerHTML=html;
+}
 function switchView(v){
   state.view=v;
   document.querySelectorAll('#tabs button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-view')===v)});
@@ -2524,7 +2562,7 @@ function switchView(v){
   if(v==='book')renderBook();
   if(v==='quarrel')renderQuarrels();
   if(v==='tree')renderTree();
-if(v==='blueprint')renderFeedback();
+if(v==='blueprint'){renderFeedback();renderSectorCoverage();}
   if(v==='forum')wirePoll();
 }
 document.querySelectorAll('#tabs button').forEach(function(b){
