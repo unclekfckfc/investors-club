@@ -9,7 +9,7 @@
  */
 window.__PAPER__ = {
   version: '1.0',
-  asOf: '2026-11-14',
+  asOf: '2026-11-16',
   capital: 1000000,
   riskPerTrade: 0.02,
   maxPosition: 0.25,
@@ -23,7 +23,7 @@ window.__PAPER__ = {
     base: 'CNY',
     pair: 'USDCNH',
     src: '东方财富 133.USDCNH 日线 + 新浪 fx_susdcnh 最新价补录（降级口径）',
-    asOf: '2026-11-14',
+    asOf: '2026-11-16',
     rates: {
      
           "2026-08-17": 6.7434,
@@ -91,7 +91,8 @@ window.__PAPER__ = {
           "2026-11-11": 6.6738,
           "2026-11-12": 6.6734,
           "2026-11-13": 6.6747,
-          "2026-11-14": 6.6746
+          "2026-11-14": 6.6746,
+          "2026-11-16": 6.674
     
     }
   },
@@ -132,7 +133,7 @@ window.__PAPER__ = {
     },
     {
       id: 'p3', m: 'druckenmiller', date: '2026-11-09', symbol: 'hf_OIL', name: '原油', dir: -1,
-      entry: 92.26, stop: 100, mark: 96.29, entrySrc: 'sina:2026-11-09',
+      entry: 92.26, stop: 100, mark: 95.41, entrySrc: 'sina:2026-11-09',
       thesis: '供给过剩压过地缘溢价', ruleText: '到期低于 100 即成立'
     },
     {
